@@ -259,7 +259,7 @@ def render_workspace_page():
                 """, unsafe_allow_html=True)
                 
                 # Display suggestions in columns
-                num_cols = min(3, len(matching_suggestions))
+                num_cols = min(1, len(matching_suggestions))
                 suggestion_cols = st.columns(num_cols)
                 
                 for idx, suggestion in enumerate(matching_suggestions):

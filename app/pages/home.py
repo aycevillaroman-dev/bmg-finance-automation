@@ -161,10 +161,28 @@ def render_home_page():
             
             # Show spinner while loading
             with st.spinner("Loading your Excel file..."):
-                # Load the dataframe
-                df = pd.read_excel(uploaded_file, engine='openpyxl')
+                raw_df = pd.read_excel(
+                    uploaded_file,
+                    engine="openpyxl",
+                    header=None
+                )
+
+                #Use row index 3 as the header
+                raw_df.columns = raw_df.iloc[4]
+
+                #Drop rows above the header and the header row itself
+                df = raw_df.iloc[4:].reset_index(drop=True)
+
+                #Drop completely empty columns 
+                df = df.dropna(axis=1, how="all")
+
                 st.session_state.df_original = df.copy()
-            
+
+                # Streamlit debug
+                st.write("Detected headers:")
+                st.code(list(df.columns))
+
+                
             # Show success and proceed button
             st.success(f"File uploaded successfully! Found {len(df)} rows.")
             
@@ -204,3 +222,4 @@ def render_home_page():
             </div>
         </div>
     """, unsafe_allow_html=True)
+
