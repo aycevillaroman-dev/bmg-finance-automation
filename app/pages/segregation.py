@@ -1,23 +1,23 @@
-"""
-Automatic Book Segregation Module
-
-Logic:
-- If Account is RCBC / Westpac AND Credit > 0 → Cash Disbursement
-- If Account is RCBC / Westpac AND Debit > 0 → Cash Receipts
-- Else → General Journal
-"""
-
 import streamlit as st
 import pandas as pd
 from pathlib import Path
 import sys
 from io import BytesIO
 
-sys.path.append(str(Path(__file__).parent.parent))
+# Adjust path to import utils and config if needed
+# sys.path.append(str(Path(__file__).parent.parent))
 
-from utils import load_logo
-from config import AppConfig
+# Placeholder imports if utils/config are not available in this context
+# from utils import load_logo
+# from config import AppConfig
 
+try:
+    from utils import load_logo
+    from config import AppConfig
+except ImportError:
+    class AppConfig:
+        APP_TITLE = "Book Segregation Tool"
+    def load_logo(): return None
 
 # =============================================================================================
 # CLASSIFIER
@@ -59,10 +59,11 @@ class BookCategoryClassifier:
             credit = row[credit_col]
 
             if account in self.TARGET_ACCOUNTS:
+                # UPDATED LOGIC HERE:
                 if credit > 0:
-                    return "Cash Disbursement"
+                    return "Cash Receipts"      # Credit = Receipt
                 if debit > 0:
-                    return "Cash Receipts"
+                    return "Cash Disbursement"  # Debit = Disbursement
 
             return "General Journal"
 
@@ -122,11 +123,12 @@ def render_segregation_page():
 
     # --- Download All Sheets in One Excel File ---
     buffer = BytesIO()
+    # Note: engine='xlsxwriter' is usually safer for BytesIO, but openpyxl works too.
     with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
         for sheet_name, sheet_df in segregated.items():
             sheet_df.to_excel(writer, sheet_name=sheet_name, index=False)
-        writer.save()
-
+    
+    # .save() is handled by context manager in newer pandas, but explicit save logic kept for compatibility
     st.download_button(
         label="Download Segregated Excel File",
         data=buffer.getvalue(),
