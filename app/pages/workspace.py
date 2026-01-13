@@ -67,19 +67,19 @@ def show_segregation_modal():
         <style>
         .modal-content {
             text-align: center;
-            padding: 1rem;
+            padding: 1.5rem;
         }
         .modal-title {
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             font-weight: 700;
             color: #1e293b;
             margin-bottom: 1rem;
         }
         .modal-description {
-            font-size: 1rem;
+            font-size: 1.1rem;
             color: #475569;
-            margin-bottom: 1.5rem;
-            line-height: 1.6;
+            margin-bottom: 2rem;
+            line-height: 1.8;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -108,10 +108,10 @@ def show_segregation_modal():
     
     st.markdown("---")
     st.markdown("""
-        <div style='background: #f0f9ff; padding: 0.75rem; border-radius: 8px; border-left: 4px solid #3b82f6;'>
-            <p style='margin: 0; color: #1e40af; font-size: 0.9rem;'>
+        <div style='background: #e0f2fe; padding: 1rem; border-radius: 12px; border-left: 5px solid #0284c7;'>
+            <p style='margin: 0; color: #0c4a6e; font-size: 1rem;'>
                 <strong>What is Book Segregation?</strong><br>
-                <span style='font-size: 0.85rem;'>
+                <span style='font-size: 0.95rem; line-height: 1.6;'>
                 Automatically classify and split your data into:<br>
                 • Cash Disbursement (expenses, payments)<br>
                 • Cash Receipts (income, collections)<br>
@@ -144,6 +144,217 @@ def render_workspace_page():
     if st.session_state.show_modal:
         show_segregation_modal()
     
+    # Custom CSS for colorful clean design
+    st.markdown("""
+        <style>
+        /* Main color scheme */
+        .orange-section { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); }
+        .blue-section { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); }
+        .green-section { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); }
+        
+        /* Navigation Bar */
+        .nav-bar {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            padding: 1.5rem 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .nav-title {
+            color: white !important;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        .nav-subtitle {
+            color: white !important;
+            font-size: 1rem;
+            margin: 0.25rem 0 0 0;
+        }
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .logo-image {
+            height: 50px;
+            width: auto;
+        }
+        
+        /* Section Headers */
+        .section-header-orange {
+            background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.3);
+        }
+        .section-header-blue {
+            background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.3);
+        }
+        .section-header-green {
+            background: linear-gradient(135deg, #16a34a 0%, #4ade80 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.3);
+        }
+        
+        /* Info boxes */
+        .info-box-orange {
+            background: #fff7ed;
+            border-left: 5px solid #f97316;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            color: #7c2d12;
+            font-size: 1rem;
+        }
+        .info-box-blue {
+            background: #eff6ff;
+            border-left: 5px solid #0284c7;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            color: #1e3a8a;
+            font-size: 1rem;
+        }
+        .info-box-green {
+            background: #f0fdf4;
+            border-left: 5px solid #16a34a;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            color: #14532d;
+            font-size: 1rem;
+        }
+        
+        /* Suggestion container */
+        .suggestion-container {
+            background: #fef3c7;
+            border: 2px solid #fbbf24;
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .suggestion-label {
+            color: #78350f;
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Stats box */
+        .stats-box {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 1.05rem;
+        }
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+        .stat-label {
+            color: #6b7280;
+            font-weight: 600;
+        }
+        .stat-value {
+            color: #1f2937;
+            font-weight: 700;
+        }
+        
+        /* Legend */
+        .legend-container {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .legend-title {
+            font-weight: 700;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+        .legend-item {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            margin: 0 8px 8px 0;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+        
+        /* Streamlit element overrides */
+        .stTextInput > div > div > input {
+            border-radius: 10px;
+            border: 2px solid #f97316;
+            font-size: 1.05rem;
+            padding: 0.75rem;
+        }
+        .stTextInput > div > div > input:focus {
+            border-color: #fb923c;
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+        }
+        
+        /* Button styling */
+        .stButton > button {
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.2s;
+        }
+        .stButton > button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        /* Download button special styling */
+        .stDownloadButton > button {
+            background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+            color: white;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 700;
+            padding: 1rem;
+        }
+        
+        /* Dataframe styling */
+        .dataframe {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
     # Load logo
     logo_url = load_logo()
     
@@ -151,13 +362,11 @@ def render_workspace_page():
     if logo_url:
         st.markdown(f"""
             <div class="nav-bar">
-                <div class="nav-left">
-                    <div class="logo-container">
-                        <img src="{logo_url}" class="logo-image" alt="Logo">
-                        <div class="logo-text">
-                            <h2 class="nav-title">{AppConfig.APP_TITLE}</h2>
-                            <p class="nav-subtitle">{UI_LABELS['WORKSPACE_SUBTITLE']}</p>
-                        </div>
+                <div class="logo-container">
+                    <img src="{logo_url}" class="logo-image" alt="Logo">
+                    <div>
+                        <h2 class="nav-title">{AppConfig.APP_TITLE}</h2>
+                        <p class="nav-subtitle">{UI_LABELS['WORKSPACE_SUBTITLE']}</p>
                     </div>
                 </div>
             </div>
@@ -165,32 +374,16 @@ def render_workspace_page():
     else:
         st.markdown(f"""
             <div class="nav-bar">
-                <div class="nav-left">
-                    <h2 class="nav-title">{AppConfig.APP_TITLE}</h2>
-                    <p class="nav-subtitle">{UI_LABELS['WORKSPACE_SUBTITLE']}</p>
-                </div>
+                <h2 class="nav-title">{AppConfig.APP_TITLE}</h2>
+                <p class="nav-subtitle">{UI_LABELS['WORKSPACE_SUBTITLE']}</p>
             </div>
         """, unsafe_allow_html=True)
     
     # Navigation button for segregation
     col_segregate, col_space = st.columns([1.5, 5.5])
     with col_segregate:
-        st.markdown("""
-            <style>
-            .segregate-link-container {
-                margin-top: -3rem;
-                margin-bottom: 2rem;
-            }
-            </style>
-            <div class="segregate-link-container">
-        """, unsafe_allow_html=True)
-        
-        if st.button("Book Segregation", use_container_width=True, key="direct_segregation_btn", type="secondary"):
+        if st.button("📚 Book Segregation", use_container_width=True, key="direct_segregation_btn", type="secondary"):
             go_to_segregation()
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
     
     # Verify we have data
     if st.session_state.df_original is None:
@@ -201,11 +394,11 @@ def render_workspace_page():
     column_left, column_center, column_right = st.columns([3, 2, 3])
 
     # =============================================================================================
-    # LEFT COLUMN: SEARCH AND ADD TO QUEUE
+    # LEFT COLUMN: SEARCH AND ADD TO QUEUE (ORANGE)
     # =============================================================================================
     
     with column_left:
-        st.markdown(f'<h3 class="section-header">{UI_LABELS["STEP_1_HEADER"]}</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header-orange">Step 1: Search for Duplicates</div>', unsafe_allow_html=True)
         
         # Generate search suggestions from Excel data (cached in session state)
         if 'search_suggestions' not in st.session_state or st.session_state.search_suggestions is None:
@@ -222,10 +415,10 @@ def render_workspace_page():
         
         # Search input field
         search_text = st.text_input(
-            "Search text (Case Sensitive)", 
+            "Type to search your data", 
             value=st.session_state.selected_suggestion,
-            placeholder="Type to search and see suggestions...",
-            help="Search is case-sensitive. Start typing to see suggestions from your data.",
+            placeholder="Start typing to see suggestions...",
+            help="Search is case-sensitive",
             key="search_input_workspace"
         )
         
@@ -237,43 +430,21 @@ def render_workspace_page():
             ][:10]
             
             if matching_suggestions:
-                st.markdown("""
-                    <style>
-                    .suggestion-container {
-                        margin: 0.5rem 0 1rem 0;
-                        padding: 0.75rem;
-                        background: #f8fafc;
-                        border-radius: 8px;
-                        border: 1px solid #e2e8f0;
-                    }
-                    .suggestion-label {
-                        font-size: 0.85rem;
-                        font-weight: 600;
-                        color: #475569;
-                        margin-bottom: 0.5rem;
-                    }
-                    </style>
-                    <div class="suggestion-container">
-                        <div class="suggestion-label">Suggestions from your data:</div>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown('<div class="suggestion-container">', unsafe_allow_html=True)
+                st.markdown('<div class="suggestion-label">Suggestions from your data:</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
                 
                 # Display suggestions in columns
-                num_cols = min(1, len(matching_suggestions))
-                suggestion_cols = st.columns(num_cols)
-                
                 for idx, suggestion in enumerate(matching_suggestions):
-                    col_idx = idx % num_cols
-                    with suggestion_cols[col_idx]:
-                        display_text = suggestion if len(suggestion) <= 25 else f"{suggestion[:22]}..."
-                        if st.button(
-                            display_text, 
-                            key=f"suggest_{idx}_{suggestion[:10]}", 
-                            use_container_width=True,
-                            help=f"Click to search: {suggestion}"
-                        ):
-                            st.session_state.selected_suggestion = suggestion
-                            st.rerun()
+                    display_text = suggestion if len(suggestion) <= 30 else f"{suggestion[:27]}..."
+                    if st.button(
+                        display_text, 
+                        key=f"suggest_{idx}_{suggestion[:10]}", 
+                        use_container_width=True,
+                        help=f"Click to search: {suggestion}"
+                    ):
+                        st.session_state.selected_suggestion = suggestion
+                        st.rerun()
 
         # Execute search logic
         if search_text:
@@ -286,20 +457,20 @@ def render_workspace_page():
         match_count = len(st.session_state.current_matches)
         
         if match_count > 0:
-            st.success(f"Found {match_count} matching row(s) in your Excel file.")
+            st.markdown(f'<div class="info-box-orange">✓ Found {match_count} matching rows in your Excel file</div>', unsafe_allow_html=True)
             
-            add_button_label = UI_LABELS['ADD_TO_QUEUE_BUTTON'].format(count=match_count)
-            if st.button(add_button_label, use_container_width=True):
+            add_button_label = f"Add {match_count} row{'s' if match_count != 1 else ''} to deletion queue"
+            if st.button(add_button_label, use_container_width=True, type="primary"):
                 st.session_state.deletion_queue.update(st.session_state.current_matches)
                 st.session_state.current_matches = []
                 st.session_state.selected_suggestion = ""
                 st.rerun()
         elif search_text:
-            st.info("No matching rows found. Try a different search term.")
+            st.markdown('<div class="info-box-orange">No matching rows found. Try a different search term.</div>', unsafe_allow_html=True)
 
         # Display dataframe with color-coded highlighting
         st.write("")
-        st.write(f"**{UI_LABELS['ORIGINAL_DATA_PREVIEW']}**:")
+        st.markdown("**Your Excel Data:**")
         
         df_display = st.session_state.df_original.copy()
 
@@ -319,74 +490,75 @@ def render_workspace_page():
         
         # Legend for color coding
         st.markdown(f"""
-            <div style='font-size: 0.9rem; color: #64748b; margin-top: 1rem;'>
-                <strong>Legend:</strong> 
-                <span style='background: {COLOR_CODES["RED_HIGHLIGHT"]}; padding: 2px 8px; border-radius: 4px; margin: 0 5px;'>{UI_LABELS["LEGEND_RED"]}</span>
-                <span style='background: {COLOR_CODES["YELLOW_HIGHLIGHT"]}; padding: 2px 8px; border-radius: 4px;'>{UI_LABELS["LEGEND_YELLOW"]}</span>
+            <div class="legend-container">
+                <div class="legend-title">Color Guide:</div>
+                <span class="legend-item" style='background: {COLOR_CODES["RED_HIGHLIGHT"]};'>Will be deleted</span>
+                <span class="legend-item" style='background: {COLOR_CODES["YELLOW_HIGHLIGHT"]};'>Currently searching</span>
             </div>
         """, unsafe_allow_html=True)
 
     # =============================================================================================
-    # CENTER COLUMN: REVIEW AND MANAGE QUEUE
+    # CENTER COLUMN: REVIEW AND MANAGE QUEUE (BLUE)
     # =============================================================================================
     
     with column_center:
-        st.markdown(f'<h3 class="section-header">{UI_LABELS["STEP_2_HEADER"]}</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header-blue">Step 2: Review Queue</div>', unsafe_allow_html=True)
         
         # Get sorted list of queued rows
         queue_list = sorted(list(st.session_state.deletion_queue))
         
         if queue_list:
-            queue_status_text = UI_LABELS['QUEUE_STATUS'].format(count=len(queue_list))
-            st.warning(queue_status_text)
+            st.markdown(f'<div class="info-box-blue">{len(queue_list)} row{"s" if len(queue_list) != 1 else ""} marked for deletion</div>', unsafe_allow_html=True)
             
             # Display the rows currently in the deletion queue
             delete_dataframe = st.session_state.df_original.iloc[queue_list].copy()
-            delete_dataframe.insert(0, "Excel Row", [pandas_idx + 2 for pandas_idx in queue_list])
+            delete_dataframe.insert(0, "Row #", [pandas_idx + 2 for pandas_idx in queue_list])
             
-            st.write(f"**{UI_LABELS['ROWS_MARKED_FOR_DELETION']}**")
+            st.markdown("**Rows to be deleted:**")
             st.dataframe(delete_dataframe, height=AppConfig.PREVIEW_HEIGHT, use_container_width=True)
 
             # Disregard all button
             st.write("")
-            if st.button("Disregard All", use_container_width=True, type="secondary"):
+            if st.button("Clear All from Queue", use_container_width=True, type="secondary"):
                 st.session_state.deletion_queue = set()
                 st.rerun()
 
         else:
-            st.info(UI_LABELS['EMPTY_QUEUE_MESSAGE'])
+            st.markdown('<div class="info-box-blue">Your deletion queue is empty. Search and add rows to delete them.</div>', unsafe_allow_html=True)
 
     # =============================================================================================
-    # RIGHT COLUMN: PREVIEW AND DOWNLOAD
+    # RIGHT COLUMN: PREVIEW AND DOWNLOAD (GREEN)
     # =============================================================================================
 
     with column_right:
-        st.markdown(f'<h3 class="section-header">{UI_LABELS["STEP_3_HEADER"]}</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header-green">Step 3: Preview & Download</div>', unsafe_allow_html=True)
         
         # Get current queue list
         queue_list = sorted(list(st.session_state.deletion_queue))
         
         # Always show preview (after deletion)
         df_to_show = st.session_state.df_original.drop(queue_list, errors='ignore')
-        preview_title = UI_LABELS['FINAL_RESULT_PREVIEW']
         
-        st.write(f"**{preview_title}**")
+        st.markdown("**Final Result Preview:**")
         st.dataframe(df_to_show, height=AppConfig.DATAFRAME_HEIGHT, use_container_width=True)
         
         # Display statistics
         stats = get_queue_statistics(st.session_state.df_original, st.session_state.deletion_queue)
         
         st.markdown(f"""
-            <div style='background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 1rem 0;'>
-                <p style='margin: 0.25rem 0; color: #475569;'>
-                    <strong>Original Rows:</strong> {stats['original_rows']}
-                </p>
-                <p style='margin: 0.25rem 0; color: #475569;'>
-                    <strong>Rows to Delete:</strong> {stats['rows_to_delete']}
-                </p>
-                <p style='margin: 0.25rem 0; color: #475569;'>
-                    <strong>Final Rows:</strong> {stats['final_rows']}
-                </p>
+            <div class="stats-box">
+                <div class="stat-row">
+                    <span class="stat-label">Original Rows:</span>
+                    <span class="stat-value">{stats['original_rows']}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Rows to Delete:</span>
+                    <span class="stat-value" style="color: #dc2626;">{stats['rows_to_delete']}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Final Rows:</span>
+                    <span class="stat-value" style="color: #16a34a;">{stats['final_rows']}</span>
+                </div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -404,7 +576,7 @@ def render_workspace_page():
                 st.session_state.processed_df = st.session_state.df_original.drop(queue_list, errors='ignore')
             
             st.download_button(
-                label=UI_LABELS['DOWNLOAD_BUTTON'],
+                label="Download Cleaned Excel File",
                 data=processed_excel_data,
                 file_name=st.session_state.original_filename,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -413,5 +585,4 @@ def render_workspace_page():
                 on_click=lambda: st.session_state.update({'show_modal': True})
             )
         else:
-            st.info(UI_LABELS['NO_ROWS_MESSAGE'])
-    
+            st.markdown('<div class="info-box-green">Add rows to the deletion queue to enable download.</div>', unsafe_allow_html=True)

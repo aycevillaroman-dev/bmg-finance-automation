@@ -1,13 +1,25 @@
+"""
+Book Segregation module for the Excel Duplicate Delete application.
+
+This module automatically classifies accounting transactions into three books:
+- Cash Disbursement (expenses, payments)
+- Cash Receipts (income, collections)
+- General Journal (other transactions)
+"""
+
 import streamlit as st
 import pandas as pd
 from io import BytesIO
 import re
+from pathlib import Path
+import sys
 
-# =============================================================================================
-# CONFIGURATION & UTILS
-# =============================================================================================
+# Add the parent directory to sys.path to import from utils and constants
+sys.path.append(str(Path(__file__).parent.parent))
+
 try:
     from utils import load_logo
+    from constants import CSS_STYLES, UI_LABELS, COLOR_CODES
     from config import AppConfig
 except ImportError:
     class AppConfig:
@@ -16,12 +28,17 @@ except ImportError:
 
 
 # =============================================================================================
-# CLASSIFIER
+# CLASSIFIER (ORIGINAL - NO CHANGES)
 # =============================================================================================
 
 class BookCategoryClassifier:
+    """
+    Classifier that segregates accounting data into Cash Disbursement, 
+    Cash Receipts, and General Journal books based on account patterns.
+    """
 
     def _get_column_name(self, df: pd.DataFrame, candidates: list) -> str:
+        """Find column name from list of candidates (case-insensitive)."""
         cols = {c.lower().strip(): c for c in df.columns}
         for cand in candidates:
             if cand.lower() in cols:
@@ -29,6 +46,7 @@ class BookCategoryClassifier:
         return None
 
     def clean_reversals(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Remove reversal entries from the dataframe."""
         target_cols = [
             self._get_column_name(df, ["narration"]),
             self._get_column_name(df, ["description"])
@@ -47,7 +65,12 @@ class BookCategoryClassifier:
         return df[~mask].copy()
 
     def segregate(self, df: pd.DataFrame) -> dict:
-
+        """
+        Segregate dataframe into three books based on account patterns.
+        
+        Returns:
+            dict: Dictionary with keys 'Cash Disbursement', 'Cash Receipts', 'General Journal'
+        """
         df = self.clean_reversals(df.copy())
 
         # Identify columns
@@ -125,49 +148,390 @@ class BookCategoryClassifier:
         }
 
 
+def go_back_to_workspace():
+    """Navigate back to workspace page."""
+    st.session_state.current_page = 'workspace'
+    st.rerun()
+
+
 # =============================================================================================
-# UI
+# UI RENDERING
 # =============================================================================================
 
 def render_segregation_page():
-
+    """
+    Render the book segregation page with clean colorful design.
+    """
+    
+    # Custom CSS matching workspace color palette
+    st.markdown("""
+        <style>
+        /* Navigation Bar */
+        .nav-bar {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            padding: 1.5rem 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .nav-title {
+            color: white !important;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        .nav-subtitle {
+            color: white !important;
+            font-size: 1rem;
+            margin: 0.25rem 0 0 0;
+        }
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .logo-image {
+            height: 50px;
+            width: auto;
+        }
+        
+        /* Section Headers - Orange, Blue, Green */
+        .section-header-orange {
+            background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.3);
+        }
+        .section-header-blue {
+            background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.3);
+        }
+        .section-header-green {
+            background: linear-gradient(135deg, #16a34a 0%, #4ade80 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.3);
+        }
+        
+        /* Classification Rules */
+        .rule-card-orange {
+            background: #fff7ed;
+            padding: 1rem;
+            border-radius: 12px;
+            margin: 0.75rem 0;
+            border-left: 5px solid #f97316;
+        }
+        .rule-card-blue {
+            background: #eff6ff;
+            padding: 1rem;
+            border-radius: 12px;
+            margin: 0.75rem 0;
+            border-left: 5px solid #0284c7;
+        }
+        .rule-card-green {
+            background: #f0fdf4;
+            padding: 1rem;
+            border-radius: 12px;
+            margin: 0.75rem 0;
+            border-left: 5px solid #16a34a;
+        }
+        
+        /* Stats Cards */
+        .stats-card-orange {
+            background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 3px solid #f97316;
+            box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.2);
+        }
+        .stats-card-blue {
+            background: linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 3px solid #0284c7;
+            box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.2);
+        }
+        .stats-card-green {
+            background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 3px solid #16a34a;
+            box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.2);
+        }
+        
+        .stats-count {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .stats-label {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        /* Book Headers */
+        .book-header-orange {
+            background: #fff7ed;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin: 1.5rem 0 1rem 0;
+            border-left: 5px solid #f97316;
+        }
+        .book-header-orange h4 {
+            margin: 0;
+            color: #9a3412;
+            font-size: 1.2rem;
+        }
+        
+        .book-header-blue {
+            background: #eff6ff;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin: 1.5rem 0 1rem 0;
+            border-left: 5px solid #0284c7;
+        }
+        .book-header-blue h4 {
+            margin: 0;
+            color: #0c4a6e;
+            font-size: 1.2rem;
+        }
+        
+        .book-header-green {
+            background: #f0fdf4;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin: 1.5rem 0 1rem 0;
+            border-left: 5px solid #16a34a;
+        }
+        .book-header-green h4 {
+            margin: 0;
+            color: #14532d;
+            font-size: 1.2rem;
+        }
+        
+        /* Info boxes */
+        .info-box {
+            background: #eff6ff;
+            border-left: 5px solid #0284c7;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            color: #0c4a6e;
+            font-size: 1rem;
+        }
+        
+        /* Dataframe styling */
+        .dataframe {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+        }
+        
+        /* Download button */
+        .stDownloadButton > button {
+            background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+            color: white;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 700;
+            padding: 1rem;
+            border-radius: 12px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # Load logo
     logo_url = load_logo()
+    
+    # Navigation Bar
     if logo_url:
-        st.markdown(
-            f"<div class='nav-bar'><img src='{logo_url}' height='40'><h2>{AppConfig.APP_TITLE}</h2></div>",
-            unsafe_allow_html=True,
-        )
-
-    st.subheader("Automatic Book Segregation")
-
+        st.markdown(f"""
+            <div class="nav-bar">
+                <div class="logo-container">
+                    <img src="{logo_url}" class="logo-image" alt="Logo">
+                    <div>
+                        <h2 class="nav-title">{AppConfig.APP_TITLE}</h2>
+                        <p class="nav-subtitle">Book Segregation</p>
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+            <div class="nav-bar">
+                <h2 class="nav-title">{AppConfig.APP_TITLE}</h2>
+                <p class="nav-subtitle">Book Segregation</p>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    # Back button
+    col_back, col_space = st.columns([1.5, 5.5])
+    with col_back:
+        if st.button("← Back to Workspace", use_container_width=True, key="back_to_workspace_btn", type="secondary"):
+            go_back_to_workspace()
+    
+    # Check for data availability
     if st.session_state.get("processed_df") is not None:
         df = st.session_state.processed_df
+        data_source = "processed data"
     elif st.session_state.get("df_original") is not None:
         df = st.session_state.df_original
+        data_source = "original data"
     else:
-        st.error("No data available.")
+        st.error("No data available. Please return to home and upload a file.")
         st.stop()
-
-    classifier = BookCategoryClassifier()
-    segregated = classifier.segregate(df)
-
-    for name, sdf in segregated.items():
-        st.markdown(f"### {name} ({len(sdf)} rows)")
-        st.dataframe(sdf, use_container_width=True)
-
-    buffer = BytesIO()
-    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-        for name, sdf in segregated.items():
-            sdf.to_excel(writer, sheet_name=name, index=False)
-
-    original = st.session_state.get("original_filename", "Excel_File.xlsx")
-    base = re.sub(r"\.xlsx?$", "", original, flags=re.IGNORECASE)
-    output_name = f"{base}_Segregated.xlsx"
-
-    st.download_button(
-        "Download Excel File",
-        buffer.getvalue(),
-        file_name=output_name,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True,
-    )
+    
+    # Info banner
+    st.markdown(f"""
+        <div class="info-box">
+            Segregating {data_source} with <strong>{len(df):,} rows</strong> into Cash Disbursement, Cash Receipts, and General Journal
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Classification Rules
+    with st.expander("Classification Rules", expanded=False):
+        st.markdown("""
+            <div class="rule-card-orange">
+                <strong style="color: #9a3412;">Cash Disbursement</strong>
+                <p style="margin: 0.5rem 0 0 0; color: #7c2d12;">
+                Bank accounts (RCBC, Westpac) with credit entries<br>
+                Accounts Payable with debit entries
+                </p>
+            </div>
+            
+            <div class="rule-card-blue">
+                <strong style="color: #0c4a6e;">Cash Receipts</strong>
+                <p style="margin: 0.5rem 0 0 0; color: #1e40af;">
+                Bank accounts (RCBC, Westpac) with debit entries<br>
+                Accounts Receivable with credit entries
+                </p>
+            </div>
+            
+            <div class="rule-card-green">
+                <strong style="color: #14532d;">General Journal</strong>
+                <p style="margin: 0.5rem 0 0 0; color: #065f46;">
+                Manual entries (date ending with "- Manual")<br>
+                All other transactions
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    # Perform segregation
+    try:
+        classifier = BookCategoryClassifier()
+        segregated = classifier.segregate(df)
+        
+        st.success("Data successfully segregated")
+        
+        # Statistics Summary
+        st.markdown('<div class="section-header-orange">Summary Statistics</div>', unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            cd_count = len(segregated["Cash Disbursement"])
+            st.markdown(f"""
+                <div class="stats-card-orange">
+                    <div class="stats-count" style="color: #9a3412;">{cd_count:,}</div>
+                    <div class="stats-label" style="color: #7c2d12;">Cash Disbursement</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            cr_count = len(segregated["Cash Receipts"])
+            st.markdown(f"""
+                <div class="stats-card-blue">
+                    <div class="stats-count" style="color: #0c4a6e;">{cr_count:,}</div>
+                    <div class="stats-label" style="color: #1e40af;">Cash Receipts</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            gj_count = len(segregated["General Journal"])
+            st.markdown(f"""
+                <div class="stats-card-green">
+                    <div class="stats-count" style="color: #14532d;">{gj_count:,}</div>
+                    <div class="stats-label" style="color: #065f46;">General Journal</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        st.write("")
+        st.markdown("---")
+        st.write("")
+        
+        # Display each book
+        st.markdown('<div class="section-header-orange">Cash Disbursement Book</div>', unsafe_allow_html=True)
+        cd_df = segregated["Cash Disbursement"]
+        if len(cd_df) > 0:
+            st.dataframe(cd_df, height=min(400, len(cd_df) * 35 + 38), use_container_width=True)
+        else:
+            st.info("No transactions in this category")
+        
+        st.write("")
+        st.markdown('<div class="section-header-blue">Cash Receipts Book</div>', unsafe_allow_html=True)
+        cr_df = segregated["Cash Receipts"]
+        if len(cr_df) > 0:
+            st.dataframe(cr_df, height=min(400, len(cr_df) * 35 + 38), use_container_width=True)
+        else:
+            st.info("No transactions in this category")
+        
+        st.write("")
+        st.markdown('<div class="section-header-green">General Journal Book</div>', unsafe_allow_html=True)
+        gj_df = segregated["General Journal"]
+        if len(gj_df) > 0:
+            st.dataframe(gj_df, height=min(400, len(gj_df) * 35 + 38), use_container_width=True)
+        else:
+            st.info("No transactions in this category")
+        
+        # Download section at bottom
+        st.write("")
+        st.markdown("---")
+        st.write("")
+        
+        # Create Excel file for download
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            segregated["Cash Disbursement"].to_excel(writer, sheet_name="Cash Disbursement", index=False)
+            segregated["Cash Receipts"].to_excel(writer, sheet_name="Cash Receipts", index=False)
+            segregated["General Journal"].to_excel(writer, sheet_name="General Journal", index=False)
+        
+        # Generate filename
+        original = st.session_state.get("original_filename", "Excel_File.xlsx")
+        base = re.sub(r"\.xlsx?$", "", original, flags=re.IGNORECASE)
+        output_name = f"{base}_Segregated.xlsx"
+        
+        # Download button
+        st.download_button(
+            label=f"Download {output_name}",
+            data=buffer.getvalue(),
+            file_name=output_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            type="primary"
+        )
+        
+    except ValueError as e:
+        st.error(f"Error: {str(e)}")
+        st.info("Ensure your file contains: Journal ID, Account, Debit, and Credit columns")
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
