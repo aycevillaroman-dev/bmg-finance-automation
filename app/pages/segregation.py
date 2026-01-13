@@ -28,7 +28,7 @@ except ImportError:
 
 
 # =============================================================================================
-# CLASSIFIER (ORIGINAL - NO CHANGES)
+# CLASSIFIER (UPDATED: RESTORED ID FIX)
 # =============================================================================================
 
 class BookCategoryClassifier:
@@ -67,9 +67,10 @@ class BookCategoryClassifier:
     def segregate(self, df: pd.DataFrame) -> dict:
         """
         Segregate dataframe into three books based on account patterns.
-        
-        Returns:
-            dict: Dictionary with keys 'Cash Disbursement', 'Cash Receipts', 'General Journal'
+        - RESTORED FIX: Extracts ID from 'Date' description (e.g. "ID 82114") 
+          and uses it to overwrite the Column ID to ensure they match.
+        - Sorts groups by date, keeping Header rows at top.
+        - Inserts 1 blank row between groups.
         """
         df = self.clean_reversals(df.copy())
 
@@ -84,6 +85,21 @@ class BookCategoryClassifier:
         if not all([id_col, account_col, debit_col, credit_col]):
             raise ValueError("Missing required columns")
 
+        # -------------------------------------------------------------------------
+        # THE FIX: Extract ID from Description (Date Col) and Overwrite
+        # -------------------------------------------------------------------------
+        if date_col:
+            # 1. Look for pattern "ID <digits>" in the Date/Description column
+            extracted_ids = df[date_col].astype(str).str.extract(r'(?i)ID\s+(\d+)', expand=False)
+            
+            # 2. Forward fill the extracted ID down to the transaction lines below the header
+            extracted_ids = extracted_ids.ffill()
+            
+            # 3. Overwrite the Journal ID column with this extracted ID.
+            if not extracted_ids.isna().all():
+                df[id_col] = extracted_ids.combine_first(df[id_col])
+        # -------------------------------------------------------------------------
+
         # Clean and forward-fill Journal IDs
         df[id_col] = df[id_col].astype(str).str.strip()
         df[id_col] = df[id_col].replace(
@@ -97,6 +113,20 @@ class BookCategoryClassifier:
         # Ensure numeric
         df[debit_col] = pd.to_numeric(df[debit_col], errors="coerce").fillna(0)
         df[credit_col] = pd.to_numeric(df[credit_col], errors="coerce").fillna(0)
+
+        # -------------------------------------------------------------------------
+        # CLEANING STEP: Remove Rows
+        # -------------------------------------------------------------------------
+        def is_blank(series):
+            return series.isna() | series.astype(str).str.strip().str.lower().isin(['', 'nan', 'none'])
+
+        mask_date_blank = is_blank(df[date_col])
+        mask_acct_blank = is_blank(df[account_col])
+        mask_zero_money = (df[debit_col] == 0) & (df[credit_col] == 0)
+
+        mask_junk = mask_date_blank & mask_acct_blank & mask_zero_money
+        df = df[~mask_junk].copy()
+        # -------------------------------------------------------------------------
 
         # Text normalization
         acc_text = df[account_col].astype(str).str.lower()
@@ -138,14 +168,73 @@ class BookCategoryClassifier:
             return "General Journal"
 
         df["Book"] = df.index.to_series().apply(assign_book)
-
         df = df.drop(columns=["__is_receipt", "__is_disburse", "__is_manual"])
 
-        return {
+        # Create results dictionary
+        results = {
             "Cash Disbursement": df[df["Book"] == "Cash Disbursement"].drop(columns="Book"),
             "Cash Receipts": df[df["Book"] == "Cash Receipts"].drop(columns="Book"),
             "General Journal": df[df["Book"] == "General Journal"].drop(columns="Book"),
         }
+
+        # -------------------------------------------------------------------------
+        # SORTING & SPACER INSERTION LOGIC
+        # -------------------------------------------------------------------------
+        if date_col:
+            for key, book_df in results.items():
+                if book_df.empty:
+                    continue
+                
+                try:
+                    book_df = book_df.copy()
+                    
+                    # 1. Parse dates strictly for sorting
+                    book_df['__temp_sort_date'] = pd.to_datetime(book_df[date_col], errors='coerce')
+                    
+                    # 2. Assign the GROUP date
+                    book_df['__group_sort_date'] = book_df.groupby(id_col)['__temp_sort_date'].transform('min')
+                    
+                    # 3. Create Rank: 0=Header, 1=Body, 2=Footer
+                    is_footer = book_df[date_col].astype(str).str.contains(r'^(Total|None|Grand Total)', case=False, na=False)
+                    is_valid_date = book_df['__temp_sort_date'].notna()
+                    
+                    book_df['__row_rank'] = 0
+                    book_df.loc[is_valid_date, '__row_rank'] = 1
+                    book_df.loc[is_footer, '__row_rank'] = 2
+
+                    # 4. Perform the Sort
+                    book_df = book_df.sort_values(
+                        by=['__group_sort_date', id_col, '__row_rank'], 
+                        ascending=[True, True, True],
+                        na_position='last'
+                    )
+                    
+                    # 5. Insert Spacer Rows
+                    sorted_groups = []
+                    unique_ids = book_df[id_col].unique()
+                    
+                    # Create a blank row dataframe with same columns
+                    blank_row = pd.DataFrame([pd.NA] * len(book_df.columns), index=book_df.columns).T
+                    # Ensure blank row doesn't have the sorting columns
+                    blank_row = blank_row.drop(columns=['__temp_sort_date', '__group_sort_date', '__row_rank'], errors='ignore')
+
+                    for j_id in unique_ids:
+                        group = book_df[book_df[id_col] == j_id].copy()
+                        group = group.drop(columns=['__temp_sort_date', '__group_sort_date', '__row_rank'])
+                        sorted_groups.append(group)
+                        sorted_groups.append(blank_row) # Add space after group
+                    
+                    # Concatenate all groups and spacers
+                    if sorted_groups:
+                        final_df = pd.concat(sorted_groups[:-1], ignore_index=True)
+                        results[key] = final_df
+                    else:
+                        results[key] = book_df.drop(columns=['__temp_sort_date', '__group_sort_date', '__row_rank'])
+                    
+                except Exception:
+                    pass
+
+        return results
 
 
 def go_back_to_workspace():

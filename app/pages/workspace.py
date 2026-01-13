@@ -17,7 +17,7 @@ import pandas as pd
 from pathlib import Path
 import sys
 from pathlib import Path
-
+import re
 # Add the parent directory to sys.path to import from utils and constants
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -34,8 +34,6 @@ def go_to_home():
     st.session_state.current_matches = []
     st.session_state.uploaded_file = None
     st.session_state.original_filename = None
-    st.session_state.search_suggestions = None
-    st.session_state.selected_suggestion = ""
     # Clear processed data
     if 'processed_df' in st.session_state:
         del st.session_state.processed_df
@@ -60,68 +58,6 @@ def go_to_segregation():
     st.rerun()
 
 
-@st.dialog("Download Complete")
-def show_segregation_modal():
-    """Show modal after successful download with segregation option."""
-    st.markdown("""
-        <style>
-        .modal-content {
-            text-align: center;
-            padding: 1.5rem;
-        }
-        .modal-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 1rem;
-        }
-        .modal-description {
-            font-size: 1.1rem;
-            color: #475569;
-            margin-bottom: 2rem;
-            line-height: 1.8;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("""
-        <div class="modal-content">
-            <div class="modal-title">File Downloaded Successfully</div>
-            <div class="modal-description">
-                Your Excel file has been processed and downloaded.<br>
-                Would you like to segregate the cleaned data into multiple books?
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("Segregate Data", use_container_width=True, type="primary"):
-            st.session_state.show_modal = False
-            go_to_segregation()
-    
-    with col2:
-        if st.button("Done", use_container_width=True):
-            st.session_state.show_modal = False
-            st.rerun()
-    
-    st.markdown("---")
-    st.markdown("""
-        <div style='background: #e0f2fe; padding: 1rem; border-radius: 12px; border-left: 5px solid #0284c7;'>
-            <p style='margin: 0; color: #0c4a6e; font-size: 1rem;'>
-                <strong>What is Book Segregation?</strong><br>
-                <span style='font-size: 0.95rem; line-height: 1.6;'>
-                Automatically classify and split your data into:<br>
-                • Cash Disbursement (expenses, payments)<br>
-                • Cash Receipts (income, collections)<br>
-                • General Journal (other transactions)
-                </span>
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-
-
 def render_workspace_page():
     """
     Render the workspace page with 3-column layout for data processing.
@@ -135,14 +71,6 @@ def render_workspace_page():
     # Initialize modal state if not exists
     if 'show_modal' not in st.session_state:
         st.session_state.show_modal = False
-    
-    # Initialize selected suggestion state
-    if 'selected_suggestion' not in st.session_state:
-        st.session_state.selected_suggestion = ""
-    
-    # Show modal if triggered
-    if st.session_state.show_modal:
-        show_segregation_modal()
     
     # Custom CSS for colorful clean design
     st.markdown("""
@@ -400,14 +328,12 @@ def render_workspace_page():
     with column_left:
         st.markdown('<div class="section-header-orange">Step 1: Search for Duplicates</div>', unsafe_allow_html=True)
         
-        # Generate search suggestions from Excel data (cached in session state)
+        # Generate search suggestions from Excel data
         if 'search_suggestions' not in st.session_state or st.session_state.search_suggestions is None:
-            # Get all unique non-null values from the dataframe
             all_values = set()
             for col in st.session_state.df_original.columns:
                 try:
                     unique_vals = st.session_state.df_original[col].dropna().astype(str).unique()
-                    # Limit to 100 values per column for performance
                     all_values.update([v for v in unique_vals if len(v) > 0][:100])
                 except:
                     continue
@@ -416,54 +342,66 @@ def render_workspace_page():
         # Search input field
         search_text = st.text_input(
             "Type to search your data", 
-            value=st.session_state.selected_suggestion,
-            placeholder="Start typing to see suggestions...",
             help="Search is case-sensitive",
             key="search_input_workspace"
         )
         
-        # Display matching suggestions as user types
-        if search_text and len(search_text) >= 2:
-            matching_suggestions = [
-                s for s in st.session_state.search_suggestions 
-                if search_text.lower() in s.lower()
-            ][:10]
-            
-            if matching_suggestions:
-                st.markdown('<div class="suggestion-container">', unsafe_allow_html=True)
-                st.markdown('<div class="suggestion-label">Suggestions from your data:</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Display suggestions in columns
-                for idx, suggestion in enumerate(matching_suggestions):
-                    display_text = suggestion if len(suggestion) <= 30 else f"{suggestion[:27]}..."
-                    if st.button(
-                        display_text, 
-                        key=f"suggest_{idx}_{suggestion[:10]}", 
-                        use_container_width=True,
-                        help=f"Click to search: {suggestion}"
-                    ):
-                        st.session_state.selected_suggestion = suggestion
-                        st.rerun()
-
-        # Execute search logic
+        # --- SEARCH LOGIC ---
         if search_text:
-            found_indices = get_rows_to_delete_logic(st.session_state.df_original, search_text)
+            df = st.session_state.df_original
+            
+            # 1. Base Search: Find rows explicitly containing the text
+            found_indices = get_rows_to_delete_logic(df, search_text)
+            
+            # Helper function to find column names case-insensitively
+            def get_col_name(candidates):
+                cols_map = {c.lower().strip(): c for c in df.columns}
+                for cand in candidates:
+                    if cand in cols_map:
+                        return cols_map[cand]
+                return None
+
+            # 2. Journal ID Logic: Find siblings via ID
+            id_col = get_col_name(["journal id", "journal no", "id", "transaction id", "ref no", "reference"])
+            
+            if id_col and found_indices:
+                matched_ids = df.loc[found_indices, id_col].unique()
+                # Filter out empty/NaN IDs
+                valid_ids = [x for x in matched_ids if pd.notna(x) and str(x).strip() != ""]
+                
+                if valid_ids:
+                    related_by_id = df[df[id_col].isin(valid_ids)].index.tolist()
+                    found_indices = list(set(found_indices + related_by_id))
+
+            # 3. Narration Logic: Find siblings via Description/Narration
+            narr_col = get_col_name(["narration", "description", "particulars", "memo", "notes"])
+            
+            if narr_col and found_indices:
+                # Get the narration text from the rows we have found so far
+                matched_narrations = df.loc[found_indices, narr_col].unique()
+                # Filter out empty/NaN narrations to avoid selecting all blank rows
+                valid_narrations = [x for x in matched_narrations if pd.notna(x) and str(x).strip() != ""]
+                
+                if valid_narrations:
+                    # Find ALL rows that have these specific narrations
+                    related_by_narr = df[df[narr_col].isin(valid_narrations)].index.tolist()
+                    found_indices = list(set(found_indices + related_by_narr))
+            
             st.session_state.current_matches = found_indices
         else:
             st.session_state.current_matches = []
+        # ------------------------------------------------------
 
         # Display match count and add button
         match_count = len(st.session_state.current_matches)
         
         if match_count > 0:
-            st.markdown(f'<div class="info-box-orange">✓ Found {match_count} matching rows in your Excel file</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="info-box-orange">✓ Found {match_count} related rows</div>', unsafe_allow_html=True)
             
             add_button_label = f"Add {match_count} row{'s' if match_count != 1 else ''} to deletion queue"
             if st.button(add_button_label, use_container_width=True, type="primary"):
                 st.session_state.deletion_queue.update(st.session_state.current_matches)
                 st.session_state.current_matches = []
-                st.session_state.selected_suggestion = ""
                 st.rerun()
         elif search_text:
             st.markdown('<div class="info-box-orange">No matching rows found. Try a different search term.</div>', unsafe_allow_html=True)
@@ -493,7 +431,7 @@ def render_workspace_page():
             <div class="legend-container">
                 <div class="legend-title">Color Guide:</div>
                 <span class="legend-item" style='background: {COLOR_CODES["RED_HIGHLIGHT"]};'>Will be deleted</span>
-                <span class="legend-item" style='background: {COLOR_CODES["YELLOW_HIGHLIGHT"]};'>Currently searching</span>
+                <span class="legend-item" style='background: {COLOR_CODES["YELLOW_HIGHLIGHT"]};'>Transaction group found</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -536,7 +474,7 @@ def render_workspace_page():
         # Get current queue list
         queue_list = sorted(list(st.session_state.deletion_queue))
         
-        # Always show preview (after deletion)
+        # Create the specific view you see on screen
         df_to_show = st.session_state.df_original.drop(queue_list, errors='ignore')
         
         st.markdown("**Final Result Preview:**")
@@ -566,23 +504,39 @@ def render_workspace_page():
         
         # Download button
         if queue_list:
-            with st.spinner("Processing your Excel file..."):
-                processed_excel_data = process_excel_with_formatting(
-                    st.session_state.uploaded_file, 
-                    queue_list
-                )
+            from io import BytesIO
+            
+            # Generate filename
+            original = st.session_state.get("original_filename", "Excel_File.xlsx")
+            base = re.sub(r"\.xlsx?$", "", original, flags=re.IGNORECASE)
+            output_name = f"{base}_Cleaned.xlsx"
+
+            # ------------------------------------------------------------------
+            # Download EXACTLY what is in the preview 
+            # ------------------------------------------------------------------
+            buffer = BytesIO()
+            with st.spinner("Generating  Excel file..."):
+                # pandas to write the dataframe directly to a new file.
+                # index=False ensures we don't add an extra number column on the left.
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df_to_show.to_excel(writer, index=False)
                 
+                # Get the data
+                processed_excel_data = buffer.getvalue()
+                
+                # Update session state for the next page
                 st.session_state.processed_file_data = processed_excel_data
-                st.session_state.processed_df = st.session_state.df_original.drop(queue_list, errors='ignore')
+                st.session_state.processed_df = df_to_show
             
             st.download_button(
                 label="Download Cleaned Excel File",
                 data=processed_excel_data,
-                file_name=st.session_state.original_filename,
+                file_name=output_name,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
                 type="primary",
-                on_click=lambda: st.session_state.update({'show_modal': True})
+                on_click=lambda: st.session_state.update({'show_modal': True}),
+                icon="📥"
             )
         else:
             st.markdown('<div class="info-box-green">Add rows to the deletion queue to enable download.</div>', unsafe_allow_html=True)
