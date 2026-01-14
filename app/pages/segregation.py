@@ -28,7 +28,7 @@ except ImportError:
 
 
 # =============================================================================================
-# CLASSIFIER (UPDATED: RESTORED ID FIX)
+# CLASSIFIER (UPDATED: CALCULATES TOTALS ON TOTAL ROW)
 # =============================================================================================
 
 class BookCategoryClassifier:
@@ -67,9 +67,9 @@ class BookCategoryClassifier:
     def segregate(self, df: pd.DataFrame) -> dict:
         """
         Segregate dataframe into three books based on account patterns.
-        - RESTORED FIX: Extracts ID from 'Date' description (e.g. "ID 82114") 
-          and uses it to overwrite the Column ID to ensure they match.
-        - Sorts groups by date, keeping Header rows at top.
+        - Fixes ID mismatches (Description ID > Column ID).
+        - Sorts groups by date (Header > Body > Footer).
+        - CALCULATES TOTALS: Sums Debit/Credit and puts them on the 'Total' row.
         - Inserts 1 blank row between groups.
         """
         df = self.clean_reversals(df.copy())
@@ -86,19 +86,13 @@ class BookCategoryClassifier:
             raise ValueError("Missing required columns")
 
         # -------------------------------------------------------------------------
-        # THE FIX: Extract ID from Description (Date Col) and Overwrite
+        # 1. FIX ID MISMATCH (Description ID > Column ID)
         # -------------------------------------------------------------------------
         if date_col:
-            # 1. Look for pattern "ID <digits>" in the Date/Description column
             extracted_ids = df[date_col].astype(str).str.extract(r'(?i)ID\s+(\d+)', expand=False)
-            
-            # 2. Forward fill the extracted ID down to the transaction lines below the header
             extracted_ids = extracted_ids.ffill()
-            
-            # 3. Overwrite the Journal ID column with this extracted ID.
             if not extracted_ids.isna().all():
                 df[id_col] = extracted_ids.combine_first(df[id_col])
-        # -------------------------------------------------------------------------
 
         # Clean and forward-fill Journal IDs
         df[id_col] = df[id_col].astype(str).str.strip()
@@ -115,7 +109,7 @@ class BookCategoryClassifier:
         df[credit_col] = pd.to_numeric(df[credit_col], errors="coerce").fillna(0)
 
         # -------------------------------------------------------------------------
-        # CLEANING STEP: Remove Rows
+        # 2. CLEAN "GHOST" ROWS
         # -------------------------------------------------------------------------
         def is_blank(series):
             return series.isna() | series.astype(str).str.strip().str.lower().isin(['', 'nan', 'none'])
@@ -126,45 +120,35 @@ class BookCategoryClassifier:
 
         mask_junk = mask_date_blank & mask_acct_blank & mask_zero_money
         df = df[~mask_junk].copy()
-        # -------------------------------------------------------------------------
 
-        # Text normalization
+        # Text normalization & Classification Logic
         acc_text = df[account_col].astype(str).str.lower()
         narr_text = (
             df[narration_col].astype(str).str.lower()
             if narration_col else pd.Series("", index=df.index)
         )
 
-        # Account identification
         is_bank = acc_text.str.contains(r"rcbc|westpac", na=False) | \
                   narr_text.str.contains(r"rcbc|westpac", na=False)
-
         is_ap = acc_text.str.contains(r"accounts payable|trade creditors", na=False)
         is_ar = acc_text.str.contains(r"trade debtors|accounts receivable", na=False)
 
-        # Triggers
         df["__is_receipt"] = (is_bank & (df[debit_col] > 0)) | (is_ar & (df[credit_col] > 0))
         df["__is_disburse"] = (is_bank & (df[credit_col] > 0)) | (is_ap & (df[debit_col] > 0))
 
-        # Group logic
         grp_receipt = df.groupby(id_col)["__is_receipt"].transform("any")
         grp_disburse = df.groupby(id_col)["__is_disburse"].transform("any")
 
-        # Manual row flag (Date ends with "- Manual")
         df["__is_manual"] = False
         if date_col:
             df["__is_manual"] = df[date_col].astype(str).str.contains(
                 r"-\s*manual\s*$", case=False, regex=True, na=False
             )
 
-        # Final assignment
         def assign_book(idx):
-            if df.loc[idx, "__is_manual"]:
-                return "General Journal"
-            if grp_receipt[idx]:
-                return "Cash Receipts"
-            if grp_disburse[idx]:
-                return "Cash Disbursement"
+            if df.loc[idx, "__is_manual"]: return "General Journal"
+            if grp_receipt[idx]: return "Cash Receipts"
+            if grp_disburse[idx]: return "Cash Disbursement"
             return "General Journal"
 
         df["Book"] = df.index.to_series().apply(assign_book)
@@ -178,7 +162,7 @@ class BookCategoryClassifier:
         }
 
         # -------------------------------------------------------------------------
-        # SORTING & SPACER INSERTION LOGIC
+        # 3. SORTING, TOTAL CALCULATION & SPACER INSERTION
         # -------------------------------------------------------------------------
         if date_col:
             for key, book_df in results.items():
@@ -188,13 +172,10 @@ class BookCategoryClassifier:
                 try:
                     book_df = book_df.copy()
                     
-                    # 1. Parse dates strictly for sorting
+                    # Sort Logic
                     book_df['__temp_sort_date'] = pd.to_datetime(book_df[date_col], errors='coerce')
-                    
-                    # 2. Assign the GROUP date
                     book_df['__group_sort_date'] = book_df.groupby(id_col)['__temp_sort_date'].transform('min')
                     
-                    # 3. Create Rank: 0=Header, 1=Body, 2=Footer
                     is_footer = book_df[date_col].astype(str).str.contains(r'^(Total|None|Grand Total)', case=False, na=False)
                     is_valid_date = book_df['__temp_sort_date'].notna()
                     
@@ -202,29 +183,40 @@ class BookCategoryClassifier:
                     book_df.loc[is_valid_date, '__row_rank'] = 1
                     book_df.loc[is_footer, '__row_rank'] = 2
 
-                    # 4. Perform the Sort
                     book_df = book_df.sort_values(
                         by=['__group_sort_date', id_col, '__row_rank'], 
                         ascending=[True, True, True],
                         na_position='last'
                     )
                     
-                    # 5. Insert Spacer Rows
+                    # Process Groups: Insert Spacer & Calculate Totals
                     sorted_groups = []
                     unique_ids = book_df[id_col].unique()
                     
-                    # Create a blank row dataframe with same columns
                     blank_row = pd.DataFrame([pd.NA] * len(book_df.columns), index=book_df.columns).T
-                    # Ensure blank row doesn't have the sorting columns
                     blank_row = blank_row.drop(columns=['__temp_sort_date', '__group_sort_date', '__row_rank'], errors='ignore')
 
                     for j_id in unique_ids:
                         group = book_df[book_df[id_col] == j_id].copy()
                         group = group.drop(columns=['__temp_sort_date', '__group_sort_date', '__row_rank'])
+                        
+                        # --- CALCULATION LOGIC STARTS HERE ---
+                        # Find the Total row
+                        total_mask = group[date_col].astype(str).str.contains(r'^(Total|Grand Total)', case=False, na=False)
+                        
+                        if total_mask.any():
+                            # Sum only the Non-Total rows
+                            debit_sum = group.loc[~total_mask, debit_col].sum()
+                            credit_sum = group.loc[~total_mask, credit_col].sum()
+                            
+                            # Assign sums to the Total row
+                            group.loc[total_mask, debit_col] = debit_sum
+                            group.loc[total_mask, credit_col] = credit_sum
+                        # --- CALCULATION LOGIC ENDS HERE ---
+
                         sorted_groups.append(group)
-                        sorted_groups.append(blank_row) # Add space after group
+                        sorted_groups.append(blank_row)
                     
-                    # Concatenate all groups and spacers
                     if sorted_groups:
                         final_df = pd.concat(sorted_groups[:-1], ignore_index=True)
                         results[key] = final_df
@@ -255,7 +247,6 @@ def render_segregation_page():
     # Custom CSS matching workspace color palette
     st.markdown("""
         <style>
-        /* Navigation Bar */
         .nav-bar {
             background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
             padding: 1.5rem 2rem;
@@ -283,8 +274,6 @@ def render_segregation_page():
             height: 50px;
             width: auto;
         }
-        
-        /* Section Headers - Orange, Blue, Green */
         .section-header-orange {
             background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
             color: white;
@@ -318,8 +307,6 @@ def render_segregation_page():
             margin-bottom: 1.5rem;
             box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.3);
         }
-        
-        /* Classification Rules */
         .rule-card-orange {
             background: #fff7ed;
             padding: 1rem;
@@ -341,8 +328,6 @@ def render_segregation_page():
             margin: 0.75rem 0;
             border-left: 5px solid #16a34a;
         }
-        
-        /* Stats Cards */
         .stats-card-orange {
             background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
             padding: 1.5rem;
@@ -367,7 +352,6 @@ def render_segregation_page():
             border: 3px solid #16a34a;
             box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.2);
         }
-        
         .stats-count {
             font-size: 2rem;
             font-weight: 700;
@@ -377,8 +361,6 @@ def render_segregation_page():
             font-size: 1rem;
             font-weight: 600;
         }
-        
-        /* Book Headers */
         .book-header-orange {
             background: #fff7ed;
             padding: 1rem 1.5rem;
@@ -391,7 +373,6 @@ def render_segregation_page():
             color: #9a3412;
             font-size: 1.2rem;
         }
-        
         .book-header-blue {
             background: #eff6ff;
             padding: 1rem 1.5rem;
@@ -404,7 +385,6 @@ def render_segregation_page():
             color: #0c4a6e;
             font-size: 1.2rem;
         }
-        
         .book-header-green {
             background: #f0fdf4;
             padding: 1rem 1.5rem;
@@ -417,8 +397,6 @@ def render_segregation_page():
             color: #14532d;
             font-size: 1.2rem;
         }
-        
-        /* Info boxes */
         .info-box {
             background: #eff6ff;
             border-left: 5px solid #0284c7;
@@ -428,15 +406,11 @@ def render_segregation_page():
             color: #0c4a6e;
             font-size: 1rem;
         }
-        
-        /* Dataframe styling */
         .dataframe {
             border-radius: 12px;
             overflow: hidden;
             border: 2px solid #e5e7eb;
         }
-        
-        /* Download button */
         .stDownloadButton > button {
             background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
             color: white;
